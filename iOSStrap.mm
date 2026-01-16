@@ -110,7 +110,7 @@ static void init() {
         for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
             if (scene.activationState == UISceneActivationStateForegroundActive) {
                 win = scene.windows.firstObject;
-                break;
+                break; 
             }
         }
         if (!win) win = [UIApplication sharedApplication].windows.firstObject;
