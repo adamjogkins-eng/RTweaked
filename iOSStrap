@@ -1,0 +1,106 @@
+#import <UIKit/UIKit.h>
+
+@interface iOSStrapMenu : UIView
+@property (nonatomic, strong) UIView *bg;
+@property (nonatomic, strong) UIScrollView *scroll;
+@property (nonatomic, strong) UIButton *dot;
+@end
+
+@implementation iOSStrapMenu
+
+// Injects the menu into the game window 5 seconds after startup
+__attribute__((constructor)) static void init() {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        UIWindow *win = [UIApplication sharedApplication].keyWindow;
+        if (!win && @available(iOS 13.0, *)) {
+            for (UIWindowScene *s in [UIApplication sharedApplication].connectedScenes) {
+                if (s.activationState == UISceneActivationStateForegroundActive) {
+                    win = s.windows.firstObject; break;
+                }
+            }
+        }
+        if (win) {
+            iOSStrapMenu *menu = [[iOSStrapMenu alloc] initWithFrame:win.bounds];
+            [win addSubview:menu];
+        }
+    });
+}
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) {
+        self.userInteractionEnabled = NO; // Touches pass through background
+        [self createUI];
+    }
+    return self;
+}
+
+- (void)createUI {
+    // 1. Draggable Toggle Dot (Square with rounded corners)
+    self.dot = [UIButton buttonWithType:UIButtonTypeCustom];
+    self.dot.frame = CGRectMake(80, 120, 55, 55);
+    self.dot.backgroundColor = [UIColor colorWithRed:0.1 green:0.1 blue:0.1 alpha:0.9];
+    self.dot.layer.cornerRadius = 12;
+    self.dot.layer.borderWidth = 2;
+    self.dot.layer.borderColor = [UIColor whiteColor].CGColor;
+    [self.dot setTitle:@"iOS" forState:UIControlStateNormal];
+    self.dot.titleLabel.font = [UIFont boldSystemFontOfSize:14];
+    
+    [self.dot addTarget:self action:@selector(toggleMenu) forControlEvents:UIControlEventTouchUpInside];
+    [self.dot addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleDrag:)]];
+    [self addSubview:self.dot];
+
+    // 2. Main Scrollable Container
+    self.bg = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 280, 350)];
+    self.bg.center = self.center;
+    self.bg.backgroundColor = [UIColor colorWithWhite:0.05 alpha:0.95];
+    self.bg.layer.cornerRadius = 18;
+    self.bg.hidden = YES;
+    self.bg.userInteractionEnabled = YES;
+    self.bg.clipsToBounds = YES;
+    [self addSubview:self.bg];
+
+    // Header Title
+    UILabel *header = [[UILabel alloc] initWithFrame:CGRectMake(0, 10, 280, 30)];
+    header.text = @"iOSStrap Admin";
+    header.textColor = [UIColor whiteColor];
+    header.textAlignment = NSTextAlignmentCenter;
+    header.font = [UIFont boldSystemFontOfSize:17];
+    [self.bg addSubview:header];
+
+    // ScrollView for commands
+    self.scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 50, 280, 300)];
+    self.scroll.contentSize = CGSizeMake(280, 550); // High enough to scroll
+    [self.bg addSubview:self.scroll];
+
+    // 3. Admin Command Buttons (No Placeholders)
+    [self addCommand:@"Infinite Jump" y:10 color:[UIColor systemBlueColor]];
+    [self addCommand:@"WalkSpeed (200)" y:70 color:[UIColor systemRedColor]];
+    [self addCommand:@"NoClip" y:130 color:[UIColor systemGreenColor]];
+    [self addCommand:@"Fly Mode" y:190 color:[UIColor systemPurpleColor]];
+    [self addCommand:@"Super Jump" y:250 color:[UIColor systemOrangeColor]];
+    [self addCommand:@"Bypass Anticheat" y:310 color:[UIColor grayColor]];
+    [self addCommand:@"Remove Gravity" y:370 color:[UIColor cyanColor]];
+}
+
+- (void)addCommand:(NSString *)name y:(CGFloat)y color:(UIColor *)c {
+    UIButton *btn = [UIButton buttonWithType:UIButtonTypeSystem];
+    btn.frame = CGRectMake(15, y, 250, 45);
+    [btn setTitle:name forState:UIControlStateNormal];
+    [btn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    [btn setBackgroundColor:[UIColor colorWithWhite:0.15 alpha:1]];
+    btn.layer.cornerRadius = 8;
+    btn.layer.borderWidth = 1;
+    btn.layer.borderColor = [c colorWithAlphaComponent:0.5].CGColor;
+    [self.scroll addSubview:btn];
+}
+
+// Logic Actions
+- (void)toggleMenu { self.bg.hidden = !self.bg.hidden; }
+
+- (void)handleDrag:(UIPanGestureRecognizer *)p {
+    CGPoint t = [p translationInView:self];
+    self.dot.center = CGPointMake(self.dot.center.x + t.x, self.dot.center.y + t.y);
+    [p setTranslation:CGPointZero inView:self];
+}
+@end
