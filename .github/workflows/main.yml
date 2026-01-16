@@ -1,0 +1,32 @@
+name: iOSStrap Build
+on: [push, workflow_dispatch]
+
+jobs:
+  build_job:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compile
+        run: |
+          # Find the first .mm file in the repo
+          SOURCE=$(ls *.mm | head -n 1)
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          
+          clang -dynamiclib -arch arm64 \
+            -isysroot "$SDK" \
+            -framework UIKit -framework Foundation -framework CoreGraphics -framework QuartzCore \
+            -miphoneos-version-min=14.0 \
+            -install_name @executable_path/iOSStrap.dylib \
+            -fobjc-arc \
+            "$SOURCE" -o iOSStrap.dylib
+
+      - name: Sign
+        run: codesign -f -s - iOSStrap.dylib
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: iOSStrap-Dylib
+          path: iOSStrap.dylib
