@@ -1,5 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <AudioToolbox/AudioToolbox.h>
+#import <QuartzCore/QuartzCore.h>
+#import <CoreGraphics/CoreGraphics.h>
 #import <stdint.h>
 
 @interface iOSStrapMenu : UIView
@@ -10,20 +12,25 @@
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
-        self.backgroundColor = [UIColor colorWithWhite:0 alpha:0.75]; // Dark overlay
+        self.backgroundColor = [UIColor colorWithWhite:0 alpha:0.85];
         
-        // Full-Screen Script Box
+        UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(0, 50, frame.size.width, 40)];
+        title.text = @"BLOCKSS EXECUTOR";
+        title.textColor = [UIColor whiteColor];
+        title.textAlignment = NSTextAlignmentCenter;
+        title.font = [UIFont boldSystemFontOfSize:24];
+        [self addSubview:title];
+
         _scriptBox = [[UITextView alloc] initWithFrame:CGRectMake(20, 100, frame.size.width - 40, frame.size.height - 250)];
-        _scriptBox.backgroundColor = [UIColor colorWithWhite:0 alpha:0.5];
-        _scriptBox.textColor = [UIColor greenColor];
+        _scriptBox.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.8];
+        _scriptBox.textColor = [UIColor cyanColor];
         _scriptBox.font = [UIFont fontWithName:@"Courier" size:14];
-        _scriptBox.layer.cornerRadius = 15;
-        _scriptBox.text = @"-- Loadstring Example\nloadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()";
+        _scriptBox.layer.cornerRadius = 10;
+        _scriptBox.text = @"-- Loadstring / Instance Test\ngame.Workspace.Gravity = 0";
         [self addSubview:_scriptBox];
 
-        // Execute Button (Centered at bottom)
         UIButton *execBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-        execBtn.frame = CGRectMake(frame.size.width/2 - 100, frame.size.height - 120, 200, 50);
+        execBtn.frame = CGRectMake(frame.size.width/2 - 100, frame.size.height - 100, 200, 50);
         execBtn.backgroundColor = [UIColor systemBlueColor];
         execBtn.layer.cornerRadius = 25;
         [execBtn setTitle:@"EXECUTE" forState:UIControlStateNormal];
@@ -35,9 +42,9 @@
 }
 
 - (void)runScript {
-    // This is where your loadstring logic goes
-    [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleHeavy] impactOccurred];
-    NSLog(@"Loading script...");
+    UIImpactFeedbackGenerator *gen = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleHeavy];
+    [gen impactOccurred];
+    NSLog(@"Sending to Lua VM...");
 }
 @end
 
@@ -50,13 +57,11 @@ static iOSStrapMenu *sharedMenu;
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
-        // Long Press to VANISH
-        UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(vanish)];
-        [self addGestureRecognizer:longPress];
-        
-        // Pan to DRAG
         UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
         [self addGestureRecognizer:pan];
+        
+        UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(vanish)];
+        [self addGestureRecognizer:longPress];
     }
     return self;
 }
@@ -69,8 +74,7 @@ static iOSStrapMenu *sharedMenu;
 
 - (void)vanish {
     [sharedMenu removeFromSuperview];
-    [self removeFromSuperview]; // COMPLETELY VANISHES
-    AudioServicesPlaySystemSound(1521); // Heavy vibration feedback
+    [self removeFromSuperview];
 }
 
 - (void)tapped {
@@ -81,12 +85,21 @@ static iOSStrapMenu *sharedMenu;
 __attribute__((constructor))
 static void init() {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        UIWindow *win = [UIApplication sharedApplication].keyWindow;
-        sharedMenu = [[iOSStrapMenu alloc] initWithFrame:win.bounds]; // FILL FULL SCREEN
+        UIWindow *win = nil;
+        for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if (scene.activationState == UISceneActivationStateForegroundActive) {
+                win = scene.windows.firstObject;
+                break;
+            }
+        }
+        
+        if (!win) win = [UIApplication sharedApplication].windows.firstObject;
+
+        sharedMenu = [[iOSStrapMenu alloc] initWithFrame:win.bounds];
         sharedMenu.hidden = YES;
         [win addSubview:sharedMenu];
 
-        BlockssButton *btn = [[BlockssButton alloc] initWithFrame:CGRectMake(20, 100, 60, 60)];
+        BlockssButton *btn = [[BlockssButton alloc] initWithFrame:CGRectMake(50, 150, 60, 60)];
         btn.backgroundColor = [UIColor systemBlueColor];
         btn.layer.cornerRadius = 30;
         [btn setTitle:@"B" forState:UIControlStateNormal];
