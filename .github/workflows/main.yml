@@ -20,7 +20,7 @@ jobs:
           -framework AudioToolbox -framework CoreGraphics \
           -lc++ *.mm -o iOSStrap.dylib
 
-          # This line injects the memory permissions directly into the file
+          # Stamping memory permissions
           codesign --entitlements entitlements.plist -s - iOSStrap.dylib
 
       - name: Upload Artifact
