@@ -1,0 +1,26 @@
+name: Build iOSStrap Admin
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Compile iOSStrap Dylib
+        run: |
+          xcrun -sdk iphoneos clang++ -dynamiclib -arch arm64 \
+          -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
+          -framework UIKit \
+          -framework Foundation \
+          -framework QuartzCore \
+          -framework AudioToolbox \
+          -lc++ \
+          iOSStrap.mm -o iOSStrap.dylib
+
+      - name: Upload iOSStrap Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iOSStrap_Build
+          path: iOSStrap.dylib
