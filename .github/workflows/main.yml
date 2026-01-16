@@ -1,4 +1,4 @@
-name: Build iOS Dylib
+name: Build Blockss Engine
 
 on:
   push:
@@ -12,20 +12,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Compile iOSStrap Dylib
+      - name: Compile and Sign Dylib
         run: |
           xcrun -sdk iphoneos clang++ -dynamiclib -arch arm64 \
           -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
-          -framework UIKit \
-          -framework Foundation \
-          -framework QuartzCore \
-          -framework AudioToolbox \
-          -framework CoreGraphics \
-          -lc++ \
-          *.mm -o iOSStrap.dylib
+          -framework UIKit -framework Foundation -framework QuartzCore \
+          -framework AudioToolbox -framework CoreGraphics \
+          -lc++ *.mm -o iOSStrap.dylib
+
+          # This line injects the memory permissions directly into the file
+          codesign --entitlements entitlements.plist -s - iOSStrap.dylib
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: iOSStrap_Build
+          name: Blockss_Engine
           path: iOSStrap.dylib
