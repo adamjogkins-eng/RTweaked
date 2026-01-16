@@ -1,7 +1,8 @@
 #import <UIKit/UIKit.h>
 #import <AudioToolbox/AudioToolbox.h>
+#import <QuartzCore/QuartzCore.h>
 
-// --- UI COMPONENTS ---
+// 1. THE MAIN MENU CLASS
 @interface iOSStrapMenu : UIView
 @property (nonatomic, strong) UIVisualEffectView *blurView;
 @end
@@ -12,30 +13,25 @@
     if (self) {
         self.layer.cornerRadius = 25;
         self.clipsToBounds = YES;
-        self.layer.borderWidth = 1.0;
-        self.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.2].CGColor;
+        self.backgroundColor = [UIColor clearColor];
 
-        // Glassmorphism (Frosted Glass)
-        UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
-        _blurView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
+        // Glass Effect
+        UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
+        _blurView = [[UIVisualEffectView alloc] initWithEffect:blur];
         _blurView.frame = self.bounds;
         [self addSubview:_blurView];
 
         UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(0, 10, frame.size.width, 30)];
-        title.text = @"iOSStrap Admin";
-        title.textColor = [UIColor cyanColor];
+        title.text = @"Blockss Optimizer";
+        title.textColor = [UIColor systemBlueColor];
         title.textAlignment = NSTextAlignmentCenter;
         title.font = [UIFont boldSystemFontOfSize:18];
         [_blurView.contentView addSubview:title];
 
-        // Dragging Logic for the Menu itself
-        UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
-        [self addGestureRecognizer:pan];
-
-        // Adding 6 Admin Toggles
+        // 6 Universal Admin Toggles
         NSArray *cmds = @[@"Speed Hack", @"Infinite Jump", @"Fly Mode", @"No Clip", @"Auto Click", @"Anti-AFK"];
         for (int i = 0; i < cmds.count; i++) {
-            [self addToggle:cmds[i] y:50 + (i * 45)];
+            [self addToggle:cmds[i] y:50 + (i * 40)];
         }
     }
     return self;
@@ -49,59 +45,58 @@
     [_blurView.contentView addSubview:lbl];
 
     UISwitch *sw = [[UISwitch alloc] initWithFrame:CGRectMake(self.frame.size.width - 70, y, 50, 30)];
-    sw.onTintColor = [UIColor systemBlueColor];
-    [sw addTarget:self action:@selector(swTapped:) forControlEvents:UIControlEventValueChanged];
+    [sw addTarget:self action:@selector(hapticFeedback) forControlEvents:UIControlEventValueChanged];
     [_blurView.contentView addSubview:sw];
 }
 
-- (void)swTapped:(UISwitch *)sender {
-    // Haptics (Light Impact)
+- (void)hapticFeedback {
     UIImpactFeedbackGenerator *gen = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
     [gen impactOccurred];
 }
 
-- (void)handlePan:(UIPanGestureRecognizer *)p {
-    CGPoint loc = [p locationInView:self.superview];
-    self.center = loc;
-}
-@end
-
-// --- DRAGGABLE CIRCLE BUTTON ---
-@interface FloatingButton : UIButton
-@end
-@implementation FloatingButton
+// Make the menu draggable
 - (void)touchesMoved:(NSSet*)t withEvent:(UIEvent*)e {
     self.center = [[t anyObject] locationInView:self.superview];
 }
 @end
 
-// --- GLOBAL SETUP ---
-static iOSStrapMenu *menu;
-__attribute__((constructor))
-static void initialize() {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        UIWindow *win = [UIApplication sharedApplication].keyWindow;
-        
-        // Setup Menu (Hidden)
-        menu = [[iOSStrapMenu alloc] initWithFrame:CGRectMake(win.center.x-130, 150, 260, 320)];
-        menu.hidden = YES;
-        [win addSubview:menu];
+// 2. THE FLOATING BUTTON CLASS
+@interface BlockssButton : UIButton
+@end
 
-        // Setup Floating "B" Circle
-        FloatingButton *btn = [FloatingButton buttonWithType:UIButtonTypeCustom];
-        btn.frame = CGRectMake(20, 200, 60, 60);
-        btn.backgroundColor = [UIColor colorWithRed:0.0 green:0.5 blue:1.0 alpha:0.9];
-        btn.layer.cornerRadius = 30;
-        [btn setTitle:@"B" forState:UIControlStateNormal];
-        btn.titleLabel.font = [UIFont boldSystemFontOfSize:24];
-        [btn addTarget:self action:@selector(toggleMenu) forControlEvents:UIControlEventTouchUpInside];
-        [win addSubview:btn];
-    });
-}
+@implementation BlockssButton
+static iOSStrapMenu *sharedMenu;
 
-static void toggleMenu() {
-    menu.hidden = !menu.hidden;
-    // Haptics (Medium Impact) for opening menu
+- (void)tapped {
+    sharedMenu.hidden = !sharedMenu.hidden;
     UIImpactFeedbackGenerator *gen = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
     [gen impactOccurred];
+}
+
+- (void)touchesMoved:(NSSet*)t withEvent:(UIEvent*)e {
+    self.center = [[t anyObject] locationInView:self.superview];
+}
+@end
+
+// 3. THE INITIALIZER (THE BRAIN)
+__attribute__((constructor))
+static void init() {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        UIWindow *win = [UIApplication sharedApplication].keyWindow;
+        if (!win) return;
+
+        // Create Menu
+        sharedMenu = [[iOSStrapMenu alloc] initWithFrame:CGRectMake(50, 150, 260, 300)];
+        sharedMenu.hidden = YES;
+        [win addSubview:sharedMenu];
+
+        // Create Button
+        BlockssButton *btn = [BlockssButton buttonWithType:UIButtonTypeCustom];
+        btn.frame = CGRectMake(20, 200, 60, 60);
+        btn.backgroundColor = [UIColor colorWithRed:0.0 green:0.4 blue:1.0 alpha:0.9];
+        btn.layer.cornerRadius = 30;
+        [btn setTitle:@"B" forState:UIControlStateNormal];
+        [btn addTarget:btn action:@selector(tapped) forControlEvents:UIControlEventTouchUpInside];
+        [win addSubview:btn];
+    });
 }
