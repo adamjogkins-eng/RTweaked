@@ -1,8 +1,8 @@
-name: Build Blockss Engine
+name: Build iOSStrap Dylib
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -10,21 +10,28 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - name: Compile and Sign Dylib
+      - name: Setup Xcode
+        uses: apple-actions/setup-xcode@v1
+        with:
+          xcode-version: 'latest'
+
+      - name: Compile 10k Engine
         run: |
           xcrun -sdk iphoneos clang++ -dynamiclib -arch arm64 \
-          -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
-          -framework UIKit -framework Foundation -framework QuartzCore \
-          -framework AudioToolbox -framework CoreGraphics \
-          -lc++ *.mm -o iOSStrap.dylib
+          -fobjc-arc -O0 \
+          -Xlinker -all_load \
+          -miphoneos-version-min=14.0 \
+          iOSStrap.mm -o iOSStrap.dylib \
+          -framework UIKit \
+          -framework Foundation \
+          -framework AudioToolbox \
+          -framework QuartzCore
 
-          # Stamping memory permissions
-          codesign --entitlements entitlements.plist -s - iOSStrap.dylib
-
-      - name: Upload Artifact
+      - name: Upload Dylib
         uses: actions/upload-artifact@v4
         with:
-          name: Blockss_Engine
+          name: iOSStrap-Dylib
           path: iOSStrap.dylib
