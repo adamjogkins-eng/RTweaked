@@ -3,7 +3,7 @@ name: Build RTweaked Engine
 on: 
   push:
     branches: [ "main" ]
-  workflow_dispatch: # Allows you to run this manually
+  workflow_dispatch:
 
 jobs:
   build:
@@ -15,25 +15,27 @@ jobs:
 
       - name: Download 88MB API Engine
         run: |
-          # Downloads your libRobloxLib.dylib from the Release you made
           curl -L -o libRobloxLib.dylib https://github.com/adamjogkins-eng/RTweaked/releases/download/v1/libRobloxLib.dylib
           
-      - name: Hunt for Symbols (The Secret Names)
+      - name: Hunt for Symbols
         run: |
           echo "--- START SYMBOL HUNT ---"
-          # This command lists all the function names inside the 88MB file
-          # We search for 'execute' or 'lua' to find the right name for your menu
-          nm -gU libRobloxLib.dylib | grep -Ei "exec|lua|run" || echo "No obvious symbols found"
+          nm -gU libRobloxLib.dylib | grep -Ei "exec|lua|run" || echo "No symbols found"
           echo "--- END SYMBOL HUNT ---"
 
       - name: Compile RTweaked Menu
         run: |
-          # We use xcrun to compile for iPhone (arm64)
-          # -L. tells it to look in this folder for the API
-          # -lRobloxLib links your code to the 88MB engine
+          # The key flags here are:
+          # -Wl,-ld_classic : Forces the use of the older, less strict linker
+          # -Wl,-no_fixup_chains : Disables the modern iOS 15+ fixup requirement
+          # -Wl,-undefined,dynamic_lookup : Allows linking even if symbols aren't visible yet
+          
           xcrun -sdk iphoneos clang++ -dynamiclib -arch arm64 \
           -fobjc-arc -O3 \
           -L. -lRobloxLib \
+          -Wl,-ld_classic \
+          -Wl,-no_fixup_chains \
+          -Wl,-undefined,dynamic_lookup \
           iOSStrap.mm -o iOSStrap.dylib \
           -framework UIKit -framework Foundation -framework QuartzCore
           
