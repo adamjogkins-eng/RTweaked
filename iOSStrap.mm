@@ -2,19 +2,20 @@
 #import <AudioToolbox/AudioToolbox.h>
 #import <mach-o/dyld.h>
 #import <mach/mach.h>
-#import <mach/mach_vm.h> // <--- THIS FIXES THE ERROR
 #import <stdint.h>
 
-// --- ADVANCED MEMORY SCANNER ---
+// --- COMPATIBLE MEMORY SCANNER ---
+// Uses vm_region_64 which is allowed in standard iOS SDKs
 uintptr_t scan_for_sig(const char* target, size_t len) {
-    mach_vm_address_t addr = 0;
-    mach_vm_size_t size;
+    vm_address_t addr = 0;
+    vm_size_t size;
     vm_region_basic_info_data_64_t info;
     mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
     mach_port_t object_name;
 
-    // Corrected to use mach_vm_region properly
-    while (mach_vm_region(mach_task_self(), &addr, &size, VM_REGION_BASIC_INFO_64, (mach_msg_type_number_t*)&info, &count, &object_name) == KERN_SUCCESS) {
+    // Use vm_region_64 instead of the unsupported mach_vm_region
+    while (vm_region_64(mach_task_self(), &addr, &size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &count, &object_name) == KERN_SUCCESS) {
+        // We look for regions that are Readable and Executable (where code lives)
         if ((info.protection & VM_PROT_READ) && (info.protection & VM_PROT_EXECUTE)) {
             for (uintptr_t i = (uintptr_t)addr; i < (uintptr_t)(addr + size - len); i++) {
                 if (memcmp((void*)i, target, len) == 0) return i;
@@ -35,7 +36,7 @@ uintptr_t scan_for_sig(const char* target, size_t len) {
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
-        self.backgroundColor = [UIColor colorWithWhite:0 alpha:0.9];
+        self.backgroundColor = [UIColor colorWithWhite:0 alpha:0.95];
         self.layer.cornerRadius = 20;
         self.layer.borderWidth = 1.5;
         self.layer.borderColor = [UIColor systemBlueColor].CGColor;
@@ -44,14 +45,15 @@ uintptr_t scan_for_sig(const char* target, size_t len) {
         _status.text = @"STATUS: READY";
         _status.textColor = [UIColor greenColor];
         _status.textAlignment = NSTextAlignmentCenter;
-        _status.font = [UIFont boldSystemFontOfSize:10];
+        _status.font = [UIFont boldSystemFontOfSize:11];
         [self addSubview:_status];
 
-        _scriptBox = [[UITextView alloc] initWithFrame:CGRectMake(10, 40, frame.size.width - 20, frame.size.height - 100)];
+        _scriptBox = [[UITextView alloc] initWithFrame:CGRectMake(10, 40, frame.size.width - 20, frame.size.height - 105)];
         _scriptBox.backgroundColor = [UIColor blackColor];
         _scriptBox.textColor = [UIColor cyanColor];
         _scriptBox.font = [UIFont fontWithName:@"Courier" size:12];
         _scriptBox.text = @"print('Blockss Loaded')\ngame.Workspace.Gravity = 0";
+        _scriptBox.layer.cornerRadius = 8;
         [self addSubview:_scriptBox];
 
         UIButton *btn = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -67,9 +69,11 @@ uintptr_t scan_for_sig(const char* target, size_t len) {
 }
 
 - (void)runScript {
-    _status.text = @"SCANNING MEMORY...";
-    dispatch_async(dispatch_get_global_queue(0,0), ^{
-        // Example Sig: Searching for Luau Print function
+    _status.text = @"SCANNING...";
+    _status.textColor = [UIColor orangeColor];
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+        // This is a generic signature to see if we can find ANY executable code
         uintptr_t found = scan_for_sig("\x55\x48\x89\xE5\x41\x57\x41\x56", 8);
         
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -77,8 +81,9 @@ uintptr_t scan_for_sig(const char* target, size_t len) {
                 _status.text = @"ENGINE FOUND! EXECUTING...";
                 _status.textColor = [UIColor cyanColor];
                 AudioServicesPlaySystemSound(1520);
+                NSLog(@"[Blockss] Found sig at %p", (void*)found);
             } else {
-                _status.text = @"SCAN FAILED: SIG OUTDATED";
+                _status.text = @"SCAN FAILED: CHECK ENTITLEMENTS";
                 _status.textColor = [UIColor redColor];
             }
         });
@@ -95,7 +100,7 @@ static iOSStrapMenu *sharedMenu;
 
 - (void)tapped { 
     sharedMenu.hidden = !sharedMenu.hidden; 
-    [self.superview bringSubviewToFront:sharedMenu];
+    if (!sharedMenu.hidden) [sharedMenu.superview bringSubviewToFront:sharedMenu];
 }
 
 - (void)vanish { 
@@ -105,13 +110,14 @@ static iOSStrapMenu *sharedMenu;
 }
 @end
 
+// --- CONSTRUCTOR ---
 __attribute__((constructor))
 static void init() {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         UIWindow *win = nil;
-        // Modern Way to get the Window (Fixes Deprecation)
+        // Correct Modern Way to find the key window (No deprecation warnings)
         for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
-            if ([scene isKindOfClass:[UIWindowScene class]]) {
+            if (scene.activationState == UISceneActivationStateForegroundActive && [scene isKindOfClass:[UIWindowScene class]]) {
                 UIWindowScene *windowScene = (UIWindowScene *)scene;
                 for (UIWindow *window in windowScene.windows) {
                     if (window.isKeyWindow) {
@@ -120,8 +126,8 @@ static void init() {
                     }
                 }
             }
+            if (win) break;
         }
-        if (!win) win = [UIApplication sharedApplication].windows.firstObject;
         
         if (win) {
             sharedMenu = [[iOSStrapMenu alloc] initWithFrame:CGRectMake(win.center.x - 170, win.center.y - 150, 340, 300)];
@@ -133,6 +139,7 @@ static void init() {
             btn.layer.cornerRadius = 30;
             [btn setTitle:@"B" forState:UIControlStateNormal];
             [btn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+            btn.titleLabel.font = [UIFont boldSystemFontOfSize:24];
             [btn addTarget:btn action:@selector(tapped) forControlEvents:UIControlEventTouchUpInside];
             
             UILongPressGestureRecognizer *lp = [[UILongPressGestureRecognizer alloc] initWithTarget:btn action:@selector(vanish)];
